@@ -1,0 +1,10 @@
+.classpath
+.gradle/
+.project
+.settings/
+bin/
+build/
+catalogue.csv
+nccmPatchCatalogueGenerator.log
+server_3.4.000.034.zip
+server_3.4.000.035.zip
