@@ -31,11 +31,10 @@ public class PatchCatalogueGeneratorMain {
                     .println("Usage : java -jar nccm-patch-catalogue-generator-<version>.jar <file1.zip> <file2.zip>");
             return;
         }
-        init();
-        generatePatchCatalogue(args[0], args[1]);
+        init(args);
     }
 
-    private static void init() {
+    private static void init(String[] args) {
         PropertyConfigurator.configure("log4j.properties");
         try {
             catalogueFilePath = Paths.get("catalogue.csv");
@@ -44,6 +43,7 @@ public class PatchCatalogueGeneratorMain {
             Files.write(catalogueFilePath, "Status,FileName".getBytes(), StandardOpenOption.WRITE);
             threadGroup = (System.getSecurityManager() != null) ? System.getSecurityManager().getThreadGroup()
                     : Thread.currentThread().getThreadGroup();
+            generatePatchCatalogue(args[0], args[1]);
         } catch (Exception e) {
             logger.error("Error during initialization", e);
         }
