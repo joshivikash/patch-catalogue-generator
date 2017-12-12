@@ -1,9 +1,11 @@
 package com.cisco.nccm.patch.catalogue.generator;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Enumeration;
@@ -63,6 +65,7 @@ public class PatchCatalogueGeneratorMain {
         try {
             zipFile1 = new ZipFile(file1);
             zipFile2 = new ZipFile(file2);
+            extractScriptExecutorJarFromLatestServerZip();
             addModifyFileListerThread.start();
             addModifyFileListerThread.join();
             deletedFileListerThread.start();
@@ -71,6 +74,31 @@ public class PatchCatalogueGeneratorMain {
             logger.error("Error while joining threads to main process", e);
         } catch (Exception e) {
             logger.error("Error while creating ZipFile Objects", e);
+        }
+    }
+
+    private static void extractScriptExecutorJarFromLatestServerZip() {
+        Enumeration<? extends ZipEntry> entries = zipFile1.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry zipEntry = (ZipEntry) entries.nextElement();
+            if (zipEntry.getName().endsWith("ScriptExecutor.jar")) {
+                InputStream inputStream = null;
+                try {
+                    inputStream = zipFile1.getInputStream(zipEntry);
+                    Files.copy(inputStream, Paths.get("ScriptExecutor.jar"), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    logger.error("Error while extracting ScriptExecutor.jar", e);
+                } finally {
+                    if (inputStream != null) {
+                        try {
+                            inputStream.close();
+                        } catch (Exception e) {
+                            logger.error("Extracting ScriptExecutor.jar .Error while closing input stream", e);
+                        }
+                    }
+                }
+                break;
+            }
         }
     }
 
