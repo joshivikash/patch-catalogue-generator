@@ -8,7 +8,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -19,13 +21,14 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
 public class PatchCatalogueGeneratorMain {
-    private static Logger          logger   = Logger.getLogger(PatchCatalogueGeneratorMain.class);
-    private static ZipFile         zipFile1;
-    private static ZipFile         zipFile2;
-    private static Path            catalogueFilePath;
-    private static ExecutorService executorService;
-    private static ThreadGroup     threadGroup;
-    private static final String    NEW_LINE = "\n";
+    private static Logger              logger   = Logger.getLogger(PatchCatalogueGeneratorMain.class);
+    private static ZipFile             zipFile1;
+    private static ZipFile             zipFile2;
+    private static Path                catalogueFilePath;
+    private static ExecutorService     executorService;
+    private static ThreadGroup         threadGroup;
+    private static final String        NEW_LINE = "\n";
+    private static final List<Integer> arr      = new ArrayList<Integer>();
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -62,38 +65,89 @@ public class PatchCatalogueGeneratorMain {
         });
         deletedFileListerThread.setName("DeletedFileListerThread");
 
+        Thread extractJarsThread = new Thread(() -> {
+            extractJars();
+        });
+        extractJarsThread.setName("ExtractJarsThread");
+
+        Thread closeResources = new Thread(() -> {
+            if (zipFile1 != null) {
+                try {
+                    zipFile1.close();
+                } catch (IOException e) {
+                    logger.error("Error while closing resource", e);
+                }
+            }
+            if (zipFile2 != null) {
+                try {
+                    zipFile2.close();
+                } catch (IOException e) {
+                    logger.error("Error while closing resource", e);
+                }
+            }
+        });
+        closeResources.setName("CloseResources");
+
         try {
             zipFile1 = new ZipFile(file1);
             zipFile2 = new ZipFile(file2);
-            extractJarFromLatestServerZip("nccmInstallUtil.jar");
+            extractJarsThread.start();
+            extractJarsThread.join();
             addModifyFileListerThread.start();
             addModifyFileListerThread.join();
             deletedFileListerThread.start();
             deletedFileListerThread.join();
         } catch (InterruptedException e) {
-            logger.error("Error while joining threads to main process", e);
+            logger.error("Interupted while waiting for main thread to complete", e);
         } catch (Exception e) {
             logger.error("Error while creating ZipFile Objects", e);
+        } finally {
+            while (arr.size() < 3) {
+                System.out.println("Waiting .....");
+            }
+            closeResources.start();
+            try {
+                closeResources.join();
+            } catch (InterruptedException e) {
+                logger.error("Interupted while waiting for main thread to complete", e);
+            }
         }
     }
 
-    private static void extractJarFromLatestServerZip(String jarFile) {
-        Enumeration<? extends ZipEntry> entries = zipFile1.entries();
+    private static void extractJars() {
+        extractJarFromLatestServerZip(zipFile1, "nccmInstallUtil.jar");
+        try {
+            extractJarFromLatestServerZip(zipFile1, "nccmweb.war");
+            ZipFile zipFile = new ZipFile("nccmweb.war");
+            extractJarFromLatestServerZip(zipFile, "pari_audit_api.jar");
+            zipFile.close();
+            Files.deleteIfExists(Paths.get("nccmweb.war"));
+        } catch (Exception e) {
+            logger.error("Error extrating pari_audit_api.jar", e);
+        } finally {
+            synchronized (PatchCatalogueGeneratorMain.class) {
+                arr.add(arr.size() + 1);
+            }
+        }
+    }
+
+    private static void extractJarFromLatestServerZip(ZipFile zipFile, String fileName) {
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
             ZipEntry zipEntry = (ZipEntry) entries.nextElement();
-            if (zipEntry.getName().endsWith(jarFile)) {
+            if (zipEntry.getName().endsWith(fileName)) {
                 InputStream inputStream = null;
                 try {
-                    inputStream = zipFile1.getInputStream(zipEntry);
-                    Files.copy(inputStream, Paths.get(jarFile), StandardCopyOption.REPLACE_EXISTING);
+                    inputStream = zipFile.getInputStream(zipEntry);
+                    Files.copy(inputStream, Paths.get(fileName), StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
-                    logger.error("Error while extracting " + jarFile, e);
+                    logger.error("Error while extracting " + fileName, e);
                 } finally {
                     if (inputStream != null) {
                         try {
                             inputStream.close();
                         } catch (Exception e) {
-                            logger.error("Extracting " + jarFile + ".Error while closing input stream", e);
+                            logger.error("Extracting " + fileName + ".Error while closing input stream", e);
                         }
                     }
                 }
@@ -117,6 +171,10 @@ public class PatchCatalogueGeneratorMain {
             }
         } catch (Exception e) {
             logger.error("error while populating added and modified files in catalogue file", e);
+        } finally {
+            synchronized (PatchCatalogueGeneratorMain.class) {
+                arr.add(arr.size() + 1);
+            }
         }
     }
 
@@ -146,6 +204,10 @@ public class PatchCatalogueGeneratorMain {
             executorService.awaitTermination(10, TimeUnit.MINUTES);
         } catch (Exception e) {
             logger.error("Error while populating catalogue file with modified and added files", e);
+        } finally {
+            synchronized (PatchCatalogueGeneratorMain.class) {
+                arr.add(arr.size() + 1);
+            }
         }
     }
 
@@ -178,6 +240,9 @@ public class PatchCatalogueGeneratorMain {
                 } catch (Exception e) {
                     logger.error("Comparing Files. Error while closing input stream", e);
                 }
+            }
+            synchronized (PatchCatalogueGeneratorMain.class) {
+                arr.add(arr.size() + 1);
             }
         }
     }
