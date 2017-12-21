@@ -65,7 +65,7 @@ public class PatchCatalogueGeneratorMain {
         try {
             zipFile1 = new ZipFile(file1);
             zipFile2 = new ZipFile(file2);
-            extractNccmInstallUtilJarFromLatestServerZip();
+            extractJarFromLatestServerZip("nccmInstallUtil.jar");
             addModifyFileListerThread.start();
             addModifyFileListerThread.join();
             deletedFileListerThread.start();
@@ -77,23 +77,23 @@ public class PatchCatalogueGeneratorMain {
         }
     }
 
-    private static void extractNccmInstallUtilJarFromLatestServerZip() {
+    private static void extractJarFromLatestServerZip(String jarFile) {
         Enumeration<? extends ZipEntry> entries = zipFile1.entries();
         while (entries.hasMoreElements()) {
             ZipEntry zipEntry = (ZipEntry) entries.nextElement();
-            if (zipEntry.getName().endsWith("nccmInstallUtil.jar")) {
+            if (zipEntry.getName().endsWith(jarFile)) {
                 InputStream inputStream = null;
                 try {
                     inputStream = zipFile1.getInputStream(zipEntry);
-                    Files.copy(inputStream, Paths.get("nccmInstallUtil.jar"), StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(inputStream, Paths.get(jarFile), StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {
-                    logger.error("Error while extracting nccmInstallUtil.jar", e);
+                    logger.error("Error while extracting " + jarFile, e);
                 } finally {
                     if (inputStream != null) {
                         try {
                             inputStream.close();
                         } catch (Exception e) {
-                            logger.error("Extracting nccmInstallUtil.jar .Error while closing input stream", e);
+                            logger.error("Extracting " + jarFile + ".Error while closing input stream", e);
                         }
                     }
                 }
