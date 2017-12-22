@@ -71,10 +71,10 @@ public class PatchCatalogueGeneratorMain {
             zipFile1 = new ZipFile(file1);
             zipFile2 = new ZipFile(file2);
             extractJarsThread.start();
-            extractJarsThread.join();
             addModifyFileListerThread.start();
-            addModifyFileListerThread.join();
             deletedFileListerThread.start();
+            extractJarsThread.join();
+            addModifyFileListerThread.join();
             deletedFileListerThread.join();
             zipFile1.close();
             zipFile2.close();
