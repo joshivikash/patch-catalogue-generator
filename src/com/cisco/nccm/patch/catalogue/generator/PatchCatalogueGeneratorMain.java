@@ -41,6 +41,8 @@ public class PatchCatalogueGeneratorMain {
         try {
             catalogueFilePath = Paths.get("catalogue.csv");
             Files.deleteIfExists(catalogueFilePath);
+            Files.deleteIfExists(Paths.get("nccmInstallUtil.jar"));
+            Files.deleteIfExists(Paths.get("pari_audit_api.jar"));
             Files.createFile(catalogueFilePath);
             Files.write(catalogueFilePath, "Status,FileName".getBytes(), StandardOpenOption.WRITE);
             threadGroup = (System.getSecurityManager() != null) ? System.getSecurityManager().getThreadGroup()
