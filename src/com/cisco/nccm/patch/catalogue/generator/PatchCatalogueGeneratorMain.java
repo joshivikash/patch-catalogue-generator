@@ -1,11 +1,9 @@
 package com.cisco.nccm.patch.catalogue.generator;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Enumeration;
@@ -41,8 +39,6 @@ public class PatchCatalogueGeneratorMain {
         try {
             catalogueFilePath = Paths.get("catalogue.csv");
             Files.deleteIfExists(catalogueFilePath);
-            Files.deleteIfExists(Paths.get("nccmInstallUtil.jar"));
-            Files.deleteIfExists(Paths.get("pari_audit_api.jar"));
             Files.createFile(catalogueFilePath);
             Files.write(catalogueFilePath, "Status,FileName".getBytes(), StandardOpenOption.WRITE);
             threadGroup = (System.getSecurityManager() != null) ? System.getSecurityManager().getThreadGroup()
@@ -64,18 +60,11 @@ public class PatchCatalogueGeneratorMain {
         });
         deletedFileListerThread.setName("DeletedFileListerThread");
 
-        Thread extractJarsThread = new Thread(() -> {
-            extractJars();
-        });
-        extractJarsThread.setName("ExtractJarsThread");
-
         try {
             zipFile1 = new ZipFile(file1);
             zipFile2 = new ZipFile(file2);
-            extractJarsThread.start();
             addModifyFileListerThread.start();
             deletedFileListerThread.start();
-            extractJarsThread.join();
             addModifyFileListerThread.join();
             deletedFileListerThread.join();
             zipFile1.close();
@@ -84,44 +73,6 @@ public class PatchCatalogueGeneratorMain {
             logger.error("Interupted while waiting for main thread to complete", e);
         } catch (Exception e) {
             logger.error("Error while creating ZipFile Objects", e);
-        }
-    }
-
-    private static void extractJars() {
-        extractJarFromLatestServerZip(zipFile1, "nccmInstallUtil.jar");
-        try {
-            extractJarFromLatestServerZip(zipFile1, "nccmweb.war");
-            ZipFile zipFile = new ZipFile("nccmweb.war");
-            extractJarFromLatestServerZip(zipFile, "pari_audit_api.jar");
-            zipFile.close();
-            Files.deleteIfExists(Paths.get("nccmweb.war"));
-        } catch (Exception e) {
-            logger.error("Error extrating pari_audit_api.jar", e);
-        }
-    }
-
-    private static void extractJarFromLatestServerZip(ZipFile zipFile, String fileName) {
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry zipEntry = (ZipEntry) entries.nextElement();
-            if (zipEntry.getName().endsWith(fileName)) {
-                InputStream inputStream = null;
-                try {
-                    inputStream = zipFile.getInputStream(zipEntry);
-                    Files.copy(inputStream, Paths.get(fileName), StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
-                    logger.error("Error while extracting " + fileName, e);
-                } finally {
-                    if (inputStream != null) {
-                        try {
-                            inputStream.close();
-                        } catch (Exception e) {
-                            logger.error("Extracting " + fileName + ".Error while closing input stream", e);
-                        }
-                    }
-                }
-                break;
-            }
         }
     }
 
